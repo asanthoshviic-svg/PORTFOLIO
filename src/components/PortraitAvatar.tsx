@@ -18,14 +18,14 @@ export const PortraitAvatar: React.FC<PortraitAvatarProps> = ({ className = '' }
   const [hasError, setHasError] = useState(false);
   const [fallbackIndex, setFallbackIndex] = useState(0);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
   const [showUploadToast, setShowUploadToast] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Fallback URLs chain
+  // Fallback URLs chain - strictly NEVER using github avatar
   const fallbackSources = [
     '/me1-removebg-preview.png',
-    '/santhosh-profile.png',
-    '/github_avatar.png'
+    '/santhosh-profile.png'
   ];
 
   const handleImageError = () => {
@@ -38,30 +38,53 @@ export const PortraitAvatar: React.FC<PortraitAvatarProps> = ({ className = '' }
     }
   };
 
+  const processAndSaveFile = (file: File) => {
+    if (!file.type.startsWith('image/')) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const result = event.target?.result as string;
+      if (result) {
+        setImageSrc(result);
+        setHasError(false);
+        setIsLoaded(true);
+        try {
+          localStorage.setItem('santhosh_hero_avatar', result);
+        } catch {
+          // Ignore quota issues
+        }
+
+        // Persist to server disk via Vite middleware
+        fetch('/api/upload-avatar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ image: result })
+        }).catch((err) => console.log('Server avatar sync:', err));
+
+        setShowUploadToast(true);
+        setTimeout(() => setShowUploadToast(false), 3500);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const result = event.target?.result as string;
-        if (result) {
-          setImageSrc(result);
-          setHasError(false);
-          setIsLoaded(true);
-          try {
-            localStorage.setItem('santhosh_hero_avatar', result);
-          } catch {
-            // Storage quota warning ignored
-          }
-          setShowUploadToast(true);
-          setTimeout(() => setShowUploadToast(false), 3000);
-        }
-      };
-      reader.readAsDataURL(file);
+      processAndSaveFile(file);
     }
   };
 
-  const handleResetImage = () => {
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) {
+      processAndSaveFile(file);
+    }
+  };
+
+  const handleResetImage = (e: React.MouseEvent) => {
+    e.stopPropagation();
     try {
       localStorage.removeItem('santhosh_hero_avatar');
     } catch {}
@@ -71,7 +94,17 @@ export const PortraitAvatar: React.FC<PortraitAvatarProps> = ({ className = '' }
   };
 
   return (
-    <div className={`relative w-full h-full overflow-hidden select-none group/avatar ${className}`}>
+    <div
+      onDragOver={(e) => {
+        e.preventDefault();
+        setIsDragging(true);
+      }}
+      onDragLeave={() => setIsDragging(false)}
+      onDrop={handleDrop}
+      className={`relative w-full h-full overflow-hidden select-none group/avatar ${
+        isDragging ? 'ring-2 ring-cyan-400 ring-offset-2 ring-offset-[#090e1d]' : ''
+      } ${className}`}
+    >
       {/* Hidden file input for one-click photo update */}
       <input
         ref={fileInputRef}
@@ -81,6 +114,22 @@ export const PortraitAvatar: React.FC<PortraitAvatarProps> = ({ className = '' }
         onChange={handleFileChange}
         title="Upload photo"
       />
+
+      {/* Drag & Drop Visual Indicator */}
+      <AnimatePresence>
+        {isDragging && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-[#070b19]/90 border-2 border-dashed border-cyan-400 backdrop-blur-md rounded-xl p-4 text-center"
+          >
+            <Camera className="w-10 h-10 text-cyan-300 animate-bounce mb-2" />
+            <p className="text-white font-mono text-xs font-bold">Drop Image to Set Profile Photo</p>
+            <p className="text-cyan-200 text-[10px] font-mono mt-1">me1-removebg-preview.png</p>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Dynamic Ambient Background with Rich Cinematic Blue Glow */}
       <div className="absolute inset-0 bg-gradient-to-b from-[#0b142f] via-[#090f23] to-[#060812]">
@@ -245,23 +294,23 @@ export const PortraitAvatar: React.FC<PortraitAvatarProps> = ({ className = '' }
       <div className="absolute inset-0 bg-gradient-to-t from-[#091128]/85 via-blue-950/15 to-transparent pointer-events-none mix-blend-screen" />
       <div className="absolute inset-0 ring-1 ring-inset ring-blue-500/30 rounded-xl pointer-events-none" />
 
-      {/* Interactive Photo Control Overlay on Hover */}
-      <div className="absolute bottom-2.5 right-2.5 z-30 opacity-0 group-hover/avatar:opacity-100 transition-opacity duration-200 flex items-center gap-1.5">
+      {/* Interactive Photo Control Overlay */}
+      <div className="absolute bottom-2.5 right-2.5 z-30 opacity-90 hover:opacity-100 transition-opacity duration-200 flex items-center gap-1.5">
         <button
           onClick={() => fileInputRef.current?.click()}
-          className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-black/80 hover:bg-blue-600/90 text-white text-[11px] font-mono border border-blue-400/40 shadow-lg backdrop-blur-sm transition-all"
-          title="Upload or change photo"
+          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-black/85 hover:bg-blue-600 text-white text-[11px] font-mono border border-cyan-400/40 shadow-xl backdrop-blur-md transition-all hover:scale-105 active:scale-95"
+          title="Upload or drop me1-removebg-preview.png"
         >
-          <Camera className="w-3 h-3 text-cyan-300" />
-          <span>Change Photo</span>
+          <Camera className="w-3.5 h-3.5 text-cyan-300" />
+          <span className="font-semibold">Upload Photo</span>
         </button>
-        {localStorage.getItem('santhosh_hero_avatar') && (
+        {typeof window !== 'undefined' && localStorage.getItem('santhosh_hero_avatar') && (
           <button
             onClick={handleResetImage}
-            className="p-1 rounded-md bg-black/80 hover:bg-rose-600/90 text-white border border-white/20 shadow-lg backdrop-blur-sm transition-all"
+            className="p-1.5 rounded-lg bg-black/85 hover:bg-rose-600 text-white border border-white/20 shadow-xl backdrop-blur-md transition-all hover:scale-105 active:scale-95"
             title="Reset to default image"
           >
-            <RefreshCw className="w-3 h-3" />
+            <RefreshCw className="w-3.5 h-3.5" />
           </button>
         )}
       </div>

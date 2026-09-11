@@ -57,6 +57,33 @@ function aistudioMediaPlugin(): Plugin {
             // Fall through if URI decoding or file access fails
           }
         }
+
+        if (req.url === '/api/upload-avatar' && req.method === 'POST') {
+          let body = '';
+          req.on('data', (chunk) => {
+            body += chunk;
+          });
+          req.on('end', () => {
+            try {
+              const data = JSON.parse(body);
+              if (data.image) {
+                const base64Data = data.image.replace(/^data:image\/\w+;base64,/, '');
+                const buffer = Buffer.from(base64Data, 'base64');
+                fs.writeFileSync(path.resolve(__dirname, 'public', 'me1-removebg-preview.png'), buffer);
+                fs.writeFileSync(path.resolve(__dirname, 'public', 'santhosh-profile.png'), buffer);
+                res.setHeader('Content-Type', 'application/json');
+                res.end(JSON.stringify({ success: true, path: '/me1-removebg-preview.png' }));
+                return;
+              }
+            } catch (err) {
+              console.error('Error writing avatar:', err);
+            }
+            res.statusCode = 400;
+            res.end(JSON.stringify({ error: 'Failed to process image' }));
+          });
+          return;
+        }
+
         next();
       });
     },
