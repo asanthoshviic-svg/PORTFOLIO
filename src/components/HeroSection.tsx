@@ -237,8 +237,11 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenContact }) => {
                   rotateY: tiltY,
                   transformPerspective: 1000
                 }}
-                className="relative w-full max-w-[360px] sm:max-w-[390px] rounded-2xl bg-[#090e1d] border-2 border-blue-500/50 p-3.5 shadow-2xl shadow-blue-950/70 ring-1 ring-blue-400/40 will-change-transform cursor-pointer"
+                className="relative w-full max-w-[360px] sm:max-w-[390px] rounded-2xl bg-[#090e1d] border-2 border-blue-500/40 p-3.5 shadow-2xl shadow-blue-950/80 ring-1 ring-purple-500/30 will-change-transform cursor-pointer group/herocard"
               >
+                {/* Futuristic Ambient Blue/Purple Backlight Glow behind Hero Card */}
+                <div className="absolute -inset-1.5 rounded-3xl bg-gradient-to-r from-blue-600/30 via-indigo-500/20 to-purple-600/30 blur-xl -z-10 pointer-events-none opacity-80 group-hover/herocard:opacity-100 transition-opacity duration-700" />
+
                 {/* Window Header */}
                 <div className="flex items-center justify-between px-3 py-2 mb-3 border-b border-white/[0.08] bg-black/50 rounded-lg">
                   <div className="flex items-center gap-2">
